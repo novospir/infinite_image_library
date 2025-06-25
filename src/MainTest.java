@@ -20,7 +20,7 @@ class MainTest {
     static Rect sectionBounds;
     static int FRAGMENT_HEIGHT;
 
-    @BeforeAll
+    //@BeforeAll
     static void init(){
         //System.out.println("Init");
         allNodes = new HashMap<>();
@@ -94,6 +94,91 @@ class MainTest {
         Main.fill(created, Color.GREEN.getRGB());
     }
 
+    @BeforeAll
+    static void initV2(){
+        allNodes = new HashMap<>();
+        sectionBounds = new Rect(0, 0, 12*ratio, 10);
+        FRAGMENT_HEIGHT = 2;
+        int MIN_WIDTH = 2;
+        int currentX = 0;
+
+        BufferFragment created;
+        created = Main.createFragment(
+                new Rect(0, 0, 4, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                0,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        //currentX+=ratio;
+        Main.fill(created, Color.red.getRGB());
+
+        created = Main.createFragment(
+                new Rect(2, 2, 2, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                1,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        //currentX+=ratio;
+        Main.fill(created, new Color(143, 137, 204).getRGB());
+
+        created = Main.createFragment(
+                new Rect(3, 4, 1, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                2,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        //currentX+=ratio;
+        Main.fill(created, Color.cyan.getRGB());
+
+        created = Main.createFragment(
+                new Rect(4, 0, 8, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                0,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        currentX+=2*ratio;
+        Main.fill(created, Color.blue.getRGB());
+
+        created = Main.createFragment(
+                new Rect(8, 2, 4*ratio, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                1,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        currentX+=4*ratio;
+        Main.fill(created, Color.pink.getRGB());
+
+        created = Main.createFragment(
+                new Rect(10, 4, 2, FRAGMENT_HEIGHT),
+                (sectionBounds.width-1)/2,
+                2,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        Main.fill(created, Color.green.getRGB());
+
+        created = Main.createFragment(
+                new Rect(11, 6, 1, FRAGMENT_HEIGHT),
+                ((sectionBounds.width-1)/2)/2,
+                3,
+                BUFFER_TYPE,
+                MIN_WIDTH,
+                allNodes
+        );
+        Main.fill(created, Color.MAGENTA.getRGB());
+    }
+
     @BeforeEach
     void setup(){
         //System.out.println("Set up");
@@ -101,15 +186,15 @@ class MainTest {
 
     @Test
     void overflowRight(){
-        Main.ClosestSiblings closestSiblings = Main.findClosestSiblings(new HashMap<>(allNodes), 1, new Rect(1, 2, 2, 2));
-        Assertions.assertEquals(new Rect(0,2,2,2), closestSiblings.left.bounds());
-        Assertions.assertEquals(new Rect(7,2,2,2), closestSiblings.right.bounds());
+        Main.ClosestSiblings closestSiblings = Main.findClosestSiblings(new HashMap<>(allNodes), 1, new Rect(4, 2, 4, 2));
+        Assertions.assertEquals(new Rect(2,2,2,2), closestSiblings.left.bounds());
+        Assertions.assertEquals(new Rect(8,2,4,2), closestSiblings.right.bounds());
 
-        Assertions.assertEquals(1, closestSiblings.left.distance());
-        Assertions.assertEquals(4, closestSiblings.right.distance());
+        Assertions.assertEquals(0, closestSiblings.left.distance());
+        Assertions.assertEquals(0, closestSiblings.right.distance());
 
-        Assertions.assertEquals(new Rect(2,2,2,2),
-                Main.test(new Main.GlobalData(new HashMap<>(allNodes), sectionBounds, FRAGMENT_HEIGHT, BUFFER_TYPE), 2*ratio, 2));
+        Assertions.assertEquals(new Rect(4,2,4,2),
+                Main.test(new Main.GlobalData(new HashMap<>(allNodes), sectionBounds, FRAGMENT_HEIGHT, BUFFER_TYPE), 4, 2));
     }
 
     @Test
