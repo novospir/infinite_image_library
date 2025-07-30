@@ -1,4 +1,4 @@
-package test.java.com.novospir.libraries;
+package com.novospir.libraries;
 
 import com.github.romankh3.image.comparison.ImageComparison;
 import com.github.romankh3.image.comparison.model.ImageComparisonResult;
