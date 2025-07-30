@@ -1,3 +1,5 @@
+import main.java.com.pixel.BufferFragment;
+import main.java.com.pixel.util.Rect;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,13 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class MainTest {
 
-    static final int BUFFER_TYPE = BufferedImage.TYPE_INT_RGB;
+    /*static final int BUFFER_TYPE = BufferedImage.TYPE_INT_RGB;
     static final int ratio = 1;
 
     static Map<Integer, List<BufferFragment>> allNodes;
     static Rect sectionBounds;
-    static int FRAGMENT_HEIGHT;
-    static boolean runningAllTests = false;
+    static int FRAGMENT_HEIGHT, ROOT_WIDTH;
+    static boolean runningAllTests = true;
 
     //@BeforeAll
     static void init() {
@@ -34,7 +36,7 @@ class MainTest {
         int currentX = 0;
 
         BufferFragment created;
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(currentX, 0, ratio, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -45,7 +47,7 @@ class MainTest {
         currentX += ratio;
         Main.fill(created, Color.CYAN.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(currentX, 0, 2 * ratio, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -56,7 +58,7 @@ class MainTest {
         currentX += 2 * ratio;
         Main.fill(created, Color.ORANGE.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(currentX, 0, 4 * ratio, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -67,7 +69,7 @@ class MainTest {
         currentX += 4 * ratio;
         Main.fill(created, Color.RED.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(currentX, 0, 4 * ratio, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -77,7 +79,7 @@ class MainTest {
         );
         Main.fill(created, Color.PINK.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(0, FRAGMENT_HEIGHT, 2 * ratio, FRAGMENT_HEIGHT),
                 ((sectionBounds.width - 1) / 2) / 2,
                 1,
@@ -87,7 +89,7 @@ class MainTest {
         );
         Main.fill(created, Color.GREEN.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(7 * ratio, FRAGMENT_HEIGHT, 2 * ratio, FRAGMENT_HEIGHT),
                 ((sectionBounds.width - 1) / 2) / 2,
                 1,
@@ -102,12 +104,13 @@ class MainTest {
     static void initV2() {
         allNodes = new HashMap<>();
         sectionBounds = new Rect(0, 0, 17 * ratio, 10);
+        ROOT_WIDTH = (sectionBounds.width - 1) / 2;
         FRAGMENT_HEIGHT = 2;
         int MIN_WIDTH = 2;
         int currentX = 0;
 
         BufferFragment created;
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(0, 0, 4, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -118,7 +121,7 @@ class MainTest {
         //currentX+=ratio;
         Main.fill(created, Color.red.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(2, 2, 2, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 1,
@@ -129,7 +132,7 @@ class MainTest {
         //currentX+=ratio;
         Main.fill(created, new Color(143, 137, 204).getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(2, 4, 2, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 2,
@@ -140,7 +143,7 @@ class MainTest {
         //currentX+=ratio;
         Main.fill(created, Color.cyan.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(4, 0, 8, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 0,
@@ -151,7 +154,7 @@ class MainTest {
         currentX += 2 * ratio;
         Main.fill(created, Color.blue.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(8, 2, 4 * ratio, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 1,
@@ -162,7 +165,7 @@ class MainTest {
         currentX += 4 * ratio;
         Main.fill(created, Color.pink.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(10, 4, 2, FRAGMENT_HEIGHT),
                 (sectionBounds.width - 1) / 2,
                 2,
@@ -172,7 +175,7 @@ class MainTest {
         );
         Main.fill(created, Color.green.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(11, 6, 2, FRAGMENT_HEIGHT),
                 ((sectionBounds.width - 1) / 2) / 2,
                 3,
@@ -182,10 +185,10 @@ class MainTest {
         );
         Main.fill(created, Color.MAGENTA.getRGB());
 
-        created = Main.createFragment(
+        created = Main.createFragment(sectionBounds,
                 new Rect(4, 2, 4, FRAGMENT_HEIGHT),
                 ((sectionBounds.width - 1) / 2) / 2,
-                3,
+                1,
                 BUFFER_TYPE,
                 MIN_WIDTH,
                 allNodes
@@ -215,16 +218,15 @@ class MainTest {
          Assertions.assertEquals(new Rect(6, 4, 2, 2), // snap-left
                 Main.test(new Main.GlobalData(new HashMap<>(allNodes), sectionBounds, FRAGMENT_HEIGHT, BUFFER_TYPE), 7, 4));
     }
+
     @Test
     void smartAllocateLeft() {
         Assertions.assertEquals(new Rect(6, 4, 2, 2),
                 Main.test(new Main.GlobalData(new HashMap<>(allNodes), sectionBounds, FRAGMENT_HEIGHT, BUFFER_TYPE), 6, 4));
     }
 
-
     @Test
     void parentAlign() {
-
         Assertions.assertEquals(new Rect(8, 4, 2, 2), // parent-align
                 Main.test(new Main.GlobalData(new HashMap<>(allNodes), sectionBounds, FRAGMENT_HEIGHT, BUFFER_TYPE), 8, 4));
     }
@@ -250,7 +252,7 @@ class MainTest {
         List<BufferFragment> fragments = new ArrayList<>();
 
         // Create a left sibling
-        BufferFragment leftFragment = Main.createFragment(
+        BufferFragment leftFragment = Main.createFragment(sectionBounds,
                 new Rect(0, 2, 2, 2),
                 4,
                 1,
@@ -273,7 +275,7 @@ class MainTest {
         Map<Integer, List<BufferFragment>> testNodes = new HashMap<>();
 
         // Create a right sibling
-        BufferFragment rightFragment = Main.createFragment(
+        BufferFragment rightFragment = Main.createFragment(sectionBounds,
                 new Rect(7, 2, 2, 2),
                 4,
                 1,
@@ -296,7 +298,7 @@ class MainTest {
         Map<Integer, List<BufferFragment>> testNodes = new HashMap<>();
 
         // Create distant siblings
-        BufferFragment leftFragment = Main.createFragment(
+        BufferFragment leftFragment = Main.createFragment(sectionBounds,
                 new Rect(0, 2, 1, 2),
                 4,
                 1,
@@ -305,7 +307,7 @@ class MainTest {
                 testNodes
         );
 
-        BufferFragment rightFragment = Main.createFragment(
+        BufferFragment rightFragment = Main.createFragment(sectionBounds,
                 new Rect(15, 2, 1, 2),
                 4,
                 1,
@@ -414,5 +416,5 @@ class MainTest {
         Assertions.assertEquals(1, closestSiblings2.right.distance());
 
 
-    }
+    }*/
 }

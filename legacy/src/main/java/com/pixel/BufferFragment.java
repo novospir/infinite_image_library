@@ -1,6 +1,13 @@
+package main.java.com.pixel;
+
+import main.java.com.pixel.util.Logger;
+import main.java.com.pixel.util.Rect;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
+
+import static main.java.com.pixel.Config.FRAGMENT_HEIGHT;
 
 public class BufferFragment {
 
@@ -16,21 +23,61 @@ public class BufferFragment {
     /// The 'logically' available data within this fragment; global coordinates.
     private final Rect bounds;
 
+    private final Rect crop;
+
     /// Can be pointed at the same fragment, but there's never more than two children.
-    //public BufferFragment left, right;
-    private final int MAX_WIDTH, MIN_WIDTH;
+    //public main.java.com.pixel.BufferFragment left, right;
+    private final int MAX_WIDTH, MIN_WIDTH, RENDERED_WIDTH, ALLOCATED_WIDTH;
 
     /// @param bounds global bounds.
-    public BufferFragment(Rect bounds, int type, int maxWidth, int minWidth){
+    public BufferFragment(Rect section, Rect bounds, int type, int maxWidth){
         //this.bounds = bounds; // can be "less" than actual size. crops illegal space
         this.MAX_WIDTH = maxWidth;
-        this.MIN_WIDTH = minWidth;
+        this.MIN_WIDTH = FRAGMENT_HEIGHT; // note: w >= h
+        /*
+        3 forms of width:
+        min width = the smallest width; equivalent to 1 wide (scaled), may actually be 256
+        max width = root_max_width; this width can never exceed max_width
+        width = root_max_width / (2 * depth) .getMaxWidth()
+        rendered width = (assigned at initialization) returns for .getWidth()
+        allocated width = (assigned at initialization) how width can this fragment expand to render
+            .getAllocatedWidth() [always a power of 2] [child uses this to determine initial width]
+         */
+
+        // rect should be able to overflow left/right sides
+        // if so, calculate & allocate appropriately
+
+
+        // todo: do calculation of diagonal from expansion point
+        this.crop = (Rect) bounds.clone();
+        if(section.getRight() < bounds.getRight()){
+            // overflow on right
+            int diff = bounds.getRight() - section.getRight();
+            crop.setSize(crop.width - diff, crop.height);
+        }
+        if(section.getLeft() < bounds.getLeft()){
+            // overflow on left
+            int diff = bounds.getLeft() - section.getLeft();
+            crop.setLocation(crop.x + diff, crop.y);
+            crop.setSize(crop.width - diff, crop.height);
+        }
+        this.ALLOCATED_WIDTH = bounds.width;
+        this.RENDERED_WIDTH = (int) crop.getWidth();
+
         this.bounds = (Rect) bounds.clone();
         this.image = new BufferedImage(bounds.width, bounds.height, type);
     }
 
+    public int getWidth(){
+        return bounds.width;
+    }
+
     public int getMaxWidth(){
         return MAX_WIDTH;
+    }
+
+    public int getAllocatedWidth(){
+        return ALLOCATED_WIDTH;
     }
 
     public int getHeight(){
@@ -51,7 +98,7 @@ public class BufferFragment {
 
     /// if out of bounds, throw an error
     public void set(int x, int y, int color){
-        //Logger.log("FUNCTION NOT USED", Logger.WARN);
+        //main.java.com.pixel.util.Logger.log("FUNCTION NOT USED", main.java.com.pixel.util.Logger.WARN);
         this.image.setRGB(x - bounds.getLeft(), y - bounds.getTop(), color);
     }
 
@@ -135,16 +182,16 @@ public class BufferFragment {
 
     }
 
-    public void update(BufferFragment src, Rect copyFrom, Rect copyTo){
+    public void update(main.java.com.pixel.BufferFragment src, main.java.com.pixel.util.Rect copyFrom, main.java.com.pixel.util.Rect copyTo){
         update(src.image, image, copyFrom, copyTo);
     }
 
-    public void update(BufferFragment src, Rect copyFrom, Rect copyTo, int dx, int dy){
+    public void update(main.java.com.pixel.BufferFragment src, main.java.com.pixel.util.Rect copyFrom, main.java.com.pixel.util.Rect copyTo, int dx, int dy){
         this.shift(dx, dy);
         update(src.image, image, copyFrom, copyTo);
     }
 
-    private void update(BufferedImage src, BufferedImage dst, Rect copyFrom, Rect copyTo){
+    private void update(BufferedImage src, BufferedImage dst, main.java.com.pixel.util.Rect copyFrom, main.java.com.pixel.util.Rect copyTo){
         WritableRaster srcRaster = src.getRaster();
         WritableRaster dstRaster = dst.getRaster();
         int[] strip = new int[copyFrom.height * copyFrom.width * ((src.getType() == BufferedImage.TYPE_4BYTE_ABGR) ? 4 : 1)];
@@ -172,7 +219,7 @@ public class BufferFragment {
         return bounds.contains(x, y);
     }
 
-    public Rect getRect(){
+    public main.java.com.pixel.util.Rect getRect(){
         return bounds;
     }*/
 }

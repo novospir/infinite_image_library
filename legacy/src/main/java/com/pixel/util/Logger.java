@@ -1,3 +1,5 @@
+package main.java.com.pixel.util;
+
 public class Logger {
 
     public static final int DEBUG = 3, ERROR = 6, INFO = 4, VERBOSE = 2, WARN = 5;

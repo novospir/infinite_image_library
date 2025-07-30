@@ -1,10 +1,12 @@
+package main.java.com.pixel.util;
+
 import java.awt.*;
 
 /**
  * Wrapper class for {@link Rectangle} that provides additional methods
  * for convenience: {@code getRight()} and {@code getBottom()}.
  * <p>
- * The {@code Rect} class extends {@link Rectangle} and adds methods to
+ * The {@code main.java.com.pixel.util.Rect} class extends {@link Rectangle} and adds methods to
  * retrieve the right and bottom boundaries of the rectangle, in addition to the
  * left (x) and top (y) boundaries.
  * </p>
