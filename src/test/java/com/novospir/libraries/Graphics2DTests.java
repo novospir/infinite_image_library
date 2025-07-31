@@ -26,7 +26,7 @@ public class Graphics2DTests {
     @BeforeEach
     void setUp() {
         // Use the BufferedImageWrapper as the standard reference
-        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
         // Use InfiniteBufferedImage as the test implementation
         testImage = new InfiniteBufferedImage();
         
@@ -840,7 +840,7 @@ public class Graphics2DTests {
         }
         
         // Recreate images using AbstractBufferedImage interface
-        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
         testImage = new InfiniteBufferedImage();
         
         standardGraphics = standardImage.createGraphics();

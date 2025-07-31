@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 
 public class InfiniteBufferedImageTest2 {
-    private static BufferedImage standardBufferedImage;
+    private static AbstractBufferedImage standardBufferedImage;
     private static AbstractBufferedImage newBufferedImage;
     private static int width = 200;
     private static int height = 200;
@@ -32,7 +32,7 @@ public class InfiniteBufferedImageTest2 {
     public static void setUp() {
         // Create a BufferedImage with a white background
 
-        standardBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        standardBufferedImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
 
         // Get graphics context and set up drawing
         Graphics2D g2d = standardBufferedImage.createGraphics();
@@ -70,7 +70,7 @@ public class InfiniteBufferedImageTest2 {
         JDialog dialog = new JDialog((Frame) null, "Circle Test Visualization", true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-        JLabel label = new JLabel(new ImageIcon(standardBufferedImage));
+        JLabel label = new JLabel(new ImageIcon(standardBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height))));
         dialog.add(label);
 
         BufferedImage newBufferedImageForDisplay = newBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height));
@@ -80,7 +80,7 @@ public class InfiniteBufferedImageTest2 {
         dialog.pack();
         dialog.setVisible(true);
         //load images to be compared:
-        BufferedImage expectedImage = standardBufferedImage;
+        BufferedImage expectedImage = standardBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height));
         BufferedImage actualImage = newBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height));
 
         //Create ImageComparison object and compare the images.
@@ -98,7 +98,8 @@ public class InfiniteBufferedImageTest2 {
 
     @Test
     void rasterTest() throws IOException {
-        byte[] byteArray = ((DataBufferByte) standardBufferedImage.getData().getDataBuffer()).getData();
+        Raster originalRaster = standardBufferedImage.getRaster(new Rectangle(0, 0, width, height));
+        byte[] byteArray = ((DataBufferByte) originalRaster.getDataBuffer()).getData();
         Raster newRaster = newBufferedImage.getRaster(new Rectangle(0, 0, width, height));
         byte[] byteArray2 = ((DataBufferByte) newRaster.getDataBuffer()).getData();
         assertArrayEquals(byteArray2,byteArray);
@@ -191,7 +192,7 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testSetRGB() {
         // Create fresh test images for setRGB testing
-        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(50, 50, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(50, 50, BufferedImage.TYPE_INT_ARGB);
         AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         // Fill both with white background
@@ -258,8 +259,7 @@ public class InfiniteBufferedImageTest2 {
         Rectangle circleBounds = new Rectangle(circleX, circleY, circleDiameter, circleDiameter);
 
         // Test full image bounds
-        BufferedImage fullStandard = standardBufferedImage.getSubimage(fullBounds.x, fullBounds.y,
-            fullBounds.width, fullBounds.height);
+        BufferedImage fullStandard = standardBufferedImage.toBufferedImage(fullBounds);
         BufferedImage fullNew = newBufferedImage.toBufferedImage(fullBounds);
 
         assertEquals(fullStandard.getWidth(), fullNew.getWidth(), "Full bounds width should match");
@@ -274,8 +274,7 @@ public class InfiniteBufferedImageTest2 {
         }
 
         // Test partial bounds
-        BufferedImage partialStandard = standardBufferedImage.getSubimage(partialBounds.x, partialBounds.y,
-            partialBounds.width, partialBounds.height);
+        BufferedImage partialStandard = standardBufferedImage.toBufferedImage(partialBounds);
         BufferedImage partialNew = newBufferedImage.toBufferedImage(partialBounds);
 
         assertEquals(partialBounds.width, partialStandard.getWidth(), "Partial bounds width should be correct");
@@ -292,8 +291,7 @@ public class InfiniteBufferedImageTest2 {
         }
 
         // Test circle bounds (should contain most of the blue circle)
-        BufferedImage circleStandard = standardBufferedImage.getSubimage(circleBounds.x, circleBounds.y,
-            circleBounds.width, circleBounds.height);
+        BufferedImage circleStandard = standardBufferedImage.toBufferedImage(circleBounds);
         BufferedImage circleNew = newBufferedImage.toBufferedImage(circleBounds);
 
         assertEquals(circleBounds.width, circleStandard.getWidth(), "Circle bounds width should be correct");
@@ -313,7 +311,7 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testCreateGraphics() {
         // Test that createGraphics() returns functional Graphics2D objects
-        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(100, 100, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(100, 100, BufferedImage.TYPE_INT_ARGB);
         AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         Graphics2D g1 = testStandard.createGraphics();
@@ -385,7 +383,7 @@ public class InfiniteBufferedImageTest2 {
         Rectangle smallBounds = new Rectangle(75, 75, 50, 50);
         
         // Test full raster
-        Raster fullRaster1 = standardBufferedImage.getRaster();
+        Raster fullRaster1 = standardBufferedImage.getRaster(new Rectangle(0, 0, width, height));
         Raster fullRaster2 = newBufferedImage.getRaster(new Rectangle(0, 0, width, height));
         
         assertNotNull(fullRaster1, "Standard getRaster should return non-null");
@@ -411,7 +409,7 @@ public class InfiniteBufferedImageTest2 {
         assertArrayEquals(pixel1, pixel2, "Background pixel raster data should match");
         
         // Test partial raster using getData
-        Raster partialRaster1 = standardBufferedImage.getData(partialBounds);
+        Raster partialRaster1 = standardBufferedImage.getRaster(partialBounds);
         Raster partialRaster2 = newBufferedImage.getRaster(partialBounds);
         
         assertNotNull(partialRaster1, "Partial raster 1 should not be null");
@@ -431,7 +429,7 @@ public class InfiniteBufferedImageTest2 {
         }
         
         // Test small bounds raster
-        Raster smallRaster1 = standardBufferedImage.getData(smallBounds);
+        Raster smallRaster1 = standardBufferedImage.getRaster(smallBounds);
         Raster smallRaster2 = newBufferedImage.getRaster(smallBounds);
         
         assertEquals(smallBounds.width, smallRaster1.getWidth(), "Small raster should have correct width");
