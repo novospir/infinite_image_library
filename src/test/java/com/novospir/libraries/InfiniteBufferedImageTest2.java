@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class InfiniteBufferedImageTest2 {
     private static BufferedImage standardBufferedImage;
-    private static BufferedImage newBufferedImage;
+    private static AbstractBufferedImage newBufferedImage;
     private static int width = 200;
     private static int height = 200;
     private static int circleX = 50;
@@ -48,7 +48,7 @@ public class InfiniteBufferedImageTest2 {
 
 
         //set up a new typ of BufferedImage to compare with the standard one
-        newBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        newBufferedImage = new InfiniteBufferedImage();
 
         // Get graphics context and set up drawing
         Graphics2D g2d2 = newBufferedImage.createGraphics();
@@ -73,17 +73,23 @@ public class InfiniteBufferedImageTest2 {
         JLabel label = new JLabel(new ImageIcon(standardBufferedImage));
         dialog.add(label);
 
-        JLabel label2 = new JLabel(new ImageIcon(newBufferedImage));
+        BufferedImage newBufferedImageForDisplay = newBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height));
+        JLabel label2 = new JLabel(new ImageIcon(newBufferedImageForDisplay));
         dialog.add(label2, BorderLayout.SOUTH);
 
         dialog.pack();
         dialog.setVisible(true);
         //load images to be compared:
         BufferedImage expectedImage = standardBufferedImage;
-        BufferedImage actualImage = newBufferedImage;
+        BufferedImage actualImage = newBufferedImage.toBufferedImage(new Rectangle(0, 0, width, height));
 
         //Create ImageComparison object and compare the images.
         ImageComparisonResult imageComparisonResult = new ImageComparison(expectedImage, actualImage).compareImages();
+
+        // If comparison fails, show visual dialog before assertion
+        if (imageComparisonResult.getImageComparisonState() != ImageComparisonState.MATCH) {
+            displayComparisonFailure("testCircleDrawing", expectedImage, actualImage, imageComparisonResult);
+        }
 
         //Check the result
         assertEquals(ImageComparisonState.MATCH, imageComparisonResult.getImageComparisonState());
@@ -93,7 +99,8 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void rasterTest() throws IOException {
         byte[] byteArray = ((DataBufferByte) standardBufferedImage.getData().getDataBuffer()).getData();
-        byte[] byteArray2 = ((DataBufferByte) newBufferedImage.getData().getDataBuffer()).getData();
+        Raster newRaster = newBufferedImage.getRaster(new Rectangle(0, 0, width, height));
+        byte[] byteArray2 = ((DataBufferByte) newRaster.getDataBuffer()).getData();
         assertArrayEquals(byteArray2,byteArray);
     }
 
@@ -184,8 +191,8 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testSetRGB() {
         // Create fresh test images for setRGB testing
-        BufferedImage testStandard = new BufferedImage(50, 50, BufferedImage.TYPE_3BYTE_BGR);
-        BufferedImage testNew = new BufferedImage(50, 50, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(50, 50, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         // Fill both with white background
         Graphics2D g1 = testStandard.createGraphics();
@@ -242,42 +249,40 @@ public class InfiniteBufferedImageTest2 {
         assertEquals(testStandard.getRGB(49, 49), testNew.getRGB(49, 49), "Bottom-right corner should match");
     }
     
-    @Test 
+    @Test
     void testToBufferedImage() {
         // Test toBufferedImage with different rectangle bounds
 
         Rectangle fullBounds = new Rectangle(0, 0, width, height);
         Rectangle partialBounds = new Rectangle(25, 25, 100, 100);
         Rectangle circleBounds = new Rectangle(circleX, circleY, circleDiameter, circleDiameter);
-        
+
         // Test full image bounds
-        BufferedImage fullStandard = standardBufferedImage.getSubimage(fullBounds.x, fullBounds.y, 
+        BufferedImage fullStandard = standardBufferedImage.getSubimage(fullBounds.x, fullBounds.y,
             fullBounds.width, fullBounds.height);
-        BufferedImage fullNew = newBufferedImage.getSubimage(fullBounds.x, fullBounds.y, 
-            fullBounds.width, fullBounds.height);
-        
+        BufferedImage fullNew = newBufferedImage.toBufferedImage(fullBounds);
+
         assertEquals(fullStandard.getWidth(), fullNew.getWidth(), "Full bounds width should match");
         assertEquals(fullStandard.getHeight(), fullNew.getHeight(), "Full bounds height should match");
-        
+
         // Compare pixels in full bounds
         for (int x = 0; x < fullStandard.getWidth(); x += 10) {
             for (int y = 0; y < fullStandard.getHeight(); y += 10) {
-                assertEquals(fullStandard.getRGB(x, y), fullNew.getRGB(x, y), 
+                assertEquals(fullStandard.getRGB(x, y), fullNew.getRGB(x, y),
                     "Full bounds pixel should match at (" + x + "," + y + ")");
             }
         }
-        
+
         // Test partial bounds
         BufferedImage partialStandard = standardBufferedImage.getSubimage(partialBounds.x, partialBounds.y,
             partialBounds.width, partialBounds.height);
-        BufferedImage partialNew = newBufferedImage.getSubimage(partialBounds.x, partialBounds.y,
-            partialBounds.width, partialBounds.height);
-        
+        BufferedImage partialNew = newBufferedImage.toBufferedImage(partialBounds);
+
         assertEquals(partialBounds.width, partialStandard.getWidth(), "Partial bounds width should be correct");
         assertEquals(partialBounds.height, partialStandard.getHeight(), "Partial bounds height should be correct");
         assertEquals(partialStandard.getWidth(), partialNew.getWidth(), "Partial bounds width should match");
         assertEquals(partialStandard.getHeight(), partialNew.getHeight(), "Partial bounds height should match");
-        
+
         // Compare pixels in partial bounds
         for (int x = 0; x < partialStandard.getWidth(); x += 5) {
             for (int y = 0; y < partialStandard.getHeight(); y += 5) {
@@ -285,23 +290,22 @@ public class InfiniteBufferedImageTest2 {
                     "Partial bounds pixel should match at (" + x + "," + y + ")");
             }
         }
-        
+
         // Test circle bounds (should contain most of the blue circle)
         BufferedImage circleStandard = standardBufferedImage.getSubimage(circleBounds.x, circleBounds.y,
             circleBounds.width, circleBounds.height);
-        BufferedImage circleNew = newBufferedImage.getSubimage(circleBounds.x, circleBounds.y,
-            circleBounds.width, circleBounds.height);
-        
+        BufferedImage circleNew = newBufferedImage.toBufferedImage(circleBounds);
+
         assertEquals(circleBounds.width, circleStandard.getWidth(), "Circle bounds width should be correct");
         assertEquals(circleBounds.height, circleStandard.getHeight(), "Circle bounds height should be correct");
-        
+
         // Verify circle center is blue in both subimages
         int centerInSubimage = circleDiameter / 2;
         assertEquals(Color.BLUE.getRGB(), circleStandard.getRGB(centerInSubimage, centerInSubimage),
             "Circle center should be blue in standard subimage");
         assertEquals(Color.BLUE.getRGB(), circleNew.getRGB(centerInSubimage, centerInSubimage),
             "Circle center should be blue in new subimage");
-        assertEquals(circleStandard.getRGB(centerInSubimage, centerInSubimage), 
+        assertEquals(circleStandard.getRGB(centerInSubimage, centerInSubimage),
             circleNew.getRGB(centerInSubimage, centerInSubimage),
             "Circle centers should match in both subimages");
     }
@@ -309,8 +313,8 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testCreateGraphics() {
         // Test that createGraphics() returns functional Graphics2D objects
-        BufferedImage testStandard = new BufferedImage(100, 100, BufferedImage.TYPE_3BYTE_BGR);
-        BufferedImage testNew = new BufferedImage(100, 100, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(100, 100, BufferedImage.TYPE_3BYTE_BGR);
+        AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         Graphics2D g1 = testStandard.createGraphics();
         Graphics2D g2 = testNew.createGraphics();
@@ -382,7 +386,7 @@ public class InfiniteBufferedImageTest2 {
         
         // Test full raster
         Raster fullRaster1 = standardBufferedImage.getRaster();
-        Raster fullRaster2 = newBufferedImage.getRaster();
+        Raster fullRaster2 = newBufferedImage.getRaster(new Rectangle(0, 0, width, height));
         
         assertNotNull(fullRaster1, "Standard getRaster should return non-null");
         assertNotNull(fullRaster2, "New getRaster should return non-null");
@@ -408,7 +412,7 @@ public class InfiniteBufferedImageTest2 {
         
         // Test partial raster using getData
         Raster partialRaster1 = standardBufferedImage.getData(partialBounds);
-        Raster partialRaster2 = newBufferedImage.getData(partialBounds);
+        Raster partialRaster2 = newBufferedImage.getRaster(partialBounds);
         
         assertNotNull(partialRaster1, "Partial raster 1 should not be null");
         assertNotNull(partialRaster2, "Partial raster 2 should not be null");
@@ -428,7 +432,7 @@ public class InfiniteBufferedImageTest2 {
         
         // Test small bounds raster
         Raster smallRaster1 = standardBufferedImage.getData(smallBounds);
-        Raster smallRaster2 = newBufferedImage.getData(smallBounds);
+        Raster smallRaster2 = newBufferedImage.getRaster(smallBounds);
         
         assertEquals(smallBounds.width, smallRaster1.getWidth(), "Small raster should have correct width");
         assertEquals(smallBounds.height, smallRaster1.getHeight(), "Small raster should have correct height");
@@ -443,5 +447,74 @@ public class InfiniteBufferedImageTest2 {
         smallRaster1.getPixel(smallRaster1.getWidth()-1, smallRaster1.getHeight()-1, pixel1);
         smallRaster2.getPixel(smallRaster2.getWidth()-1, smallRaster2.getHeight()-1, pixel2);
         assertArrayEquals(pixel1, pixel2, "Small raster opposite corner pixels should match");
+    }
+    
+    private void displayComparisonFailure(String testName, BufferedImage expected, BufferedImage actual, ImageComparisonResult result) {
+        System.out.println("TEST FAILURE: " + testName + " - Displaying images for visual inspection");
+        
+        JDialog dialog = new JDialog((Frame) null, "Test Failure: " + testName, true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout());
+        
+        // Create main panel with labels
+        JPanel mainPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // Expected image
+        JPanel expectedPanel = new JPanel(new BorderLayout());
+        expectedPanel.add(new JLabel("Expected (Standard)", SwingConstants.CENTER), BorderLayout.NORTH);
+        expectedPanel.add(new JLabel(new ImageIcon(expected)), BorderLayout.CENTER);
+        
+        // Actual image  
+        JPanel actualPanel = new JPanel(new BorderLayout());
+        actualPanel.add(new JLabel("Actual (InfiniteBufferedImage)", SwingConstants.CENTER), BorderLayout.NORTH);
+        actualPanel.add(new JLabel(new ImageIcon(actual)), BorderLayout.CENTER);
+        
+        // Difference image (if available)
+        JPanel diffPanel = new JPanel(new BorderLayout());
+        diffPanel.add(new JLabel("Difference", SwingConstants.CENTER), BorderLayout.NORTH);
+        try {
+            BufferedImage diffImage = result.getResult();
+            if (diffImage != null) {
+                diffPanel.add(new JLabel(new ImageIcon(diffImage)), BorderLayout.CENTER);
+            } else {
+                diffPanel.add(new JLabel("No difference image available", SwingConstants.CENTER), BorderLayout.CENTER);
+            }
+        } catch (Exception e) {
+            diffPanel.add(new JLabel("Difference image not available", SwingConstants.CENTER), BorderLayout.CENTER);
+        }
+        
+        // Info panel
+        JPanel infoPanel = new JPanel(new BorderLayout());
+        infoPanel.add(new JLabel("Test Info", SwingConstants.CENTER), BorderLayout.NORTH);
+        JTextArea infoText = new JTextArea();
+        infoText.setEditable(false);
+        infoText.setText(
+            "Test: " + testName + "\n" +
+            "State: " + result.getImageComparisonState() + "\n" +
+            "Expected Size: " + expected.getWidth() + "x" + expected.getHeight() + "\n" +
+            "Actual Size: " + actual.getWidth() + "x" + actual.getHeight() + "\n" +
+            "Difference %: " + String.format("%.2f%%", result.getDifferencePercent())
+        );
+        JScrollPane infoScroll = new JScrollPane(infoText);
+        infoPanel.add(infoScroll, BorderLayout.CENTER);
+        
+        mainPanel.add(expectedPanel);
+        mainPanel.add(actualPanel);
+        mainPanel.add(diffPanel);
+        mainPanel.add(infoPanel);
+        
+        dialog.add(mainPanel, BorderLayout.CENTER);
+        
+        // Add close button
+        JButton closeButton = new JButton("Close and Continue Test");
+        closeButton.addActionListener(e -> dialog.dispose());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(closeButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        
+        dialog.pack();
+        dialog.setLocationRelativeTo(null); // Center on screen
+        dialog.setVisible(true); // This will block until dialog is closed
     }
 }

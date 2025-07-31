@@ -7,6 +7,7 @@ import com.github.romankh3.image.comparison.model.ImageComparisonState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
@@ -14,8 +15,8 @@ import java.awt.image.BufferedImage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class Graphics2DTests {
-    private BufferedImage standardImage;
-    private BufferedImage testImage;
+    private AbstractBufferedImage standardImage;
+    private AbstractBufferedImage testImage;
     private Graphics2D standardGraphics;
     private Graphics2D testGraphics;
     private final int width = 300;
@@ -24,8 +25,10 @@ public class Graphics2DTests {
 
     @BeforeEach
     void setUp() {
-        standardImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
-        testImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        // Use the BufferedImageWrapper as the standard reference
+        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        // Use InfiniteBufferedImage as the test implementation
+        testImage = new InfiniteBufferedImage();
         
         standardGraphics = standardImage.createGraphics();
         testGraphics = testImage.createGraphics();
@@ -735,9 +738,89 @@ public class Graphics2DTests {
     }
 
     private void compareImages(String testName) {
-        ImageComparisonResult result = new ImageComparison(standardImage, testImage).compareImages();
+        // Convert AbstractBufferedImages to BufferedImages for comparison
+        Rectangle bounds = new Rectangle(0, 0, width, height);
+        BufferedImage standardBufferedImage = standardImage.toBufferedImage(bounds);
+        BufferedImage testBufferedImage = testImage.toBufferedImage(bounds);
+        
+        ImageComparisonResult result = new ImageComparison(standardBufferedImage, testBufferedImage).compareImages();
+        
+        // If comparison fails, show visual dialog before assertion
+        if (result.getImageComparisonState() != ImageComparisonState.MATCH) {
+            displayComparisonFailure(testName, standardBufferedImage, testBufferedImage, result);
+        }
+        
         assertEquals(ImageComparisonState.MATCH, result.getImageComparisonState(),
             "Images should match for test: " + testName);
+    }
+    
+    private void displayComparisonFailure(String testName, BufferedImage expected, BufferedImage actual, ImageComparisonResult result) {
+        System.out.println("TEST FAILURE: " + testName + " - Displaying images for visual inspection");
+        
+        JDialog dialog = new JDialog((Frame) null, "Test Failure: " + testName, true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout());
+        
+        // Create main panel with labels
+        JPanel mainPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // Expected image
+        JPanel expectedPanel = new JPanel(new BorderLayout());
+        expectedPanel.add(new JLabel("Expected (Standard)", SwingConstants.CENTER), BorderLayout.NORTH);
+        expectedPanel.add(new JLabel(new ImageIcon(expected)), BorderLayout.CENTER);
+        
+        // Actual image  
+        JPanel actualPanel = new JPanel(new BorderLayout());
+        actualPanel.add(new JLabel("Actual (InfiniteBufferedImage)", SwingConstants.CENTER), BorderLayout.NORTH);
+        actualPanel.add(new JLabel(new ImageIcon(actual)), BorderLayout.CENTER);
+        
+        // Difference image (if available)
+        JPanel diffPanel = new JPanel(new BorderLayout());
+        diffPanel.add(new JLabel("Difference", SwingConstants.CENTER), BorderLayout.NORTH);
+        try {
+            BufferedImage diffImage = result.getResult();
+            if (diffImage != null) {
+                diffPanel.add(new JLabel(new ImageIcon(diffImage)), BorderLayout.CENTER);
+            } else {
+                diffPanel.add(new JLabel("No difference image available", SwingConstants.CENTER), BorderLayout.CENTER);
+            }
+        } catch (Exception e) {
+            diffPanel.add(new JLabel("Difference image not available", SwingConstants.CENTER), BorderLayout.CENTER);
+        }
+        
+        // Info panel
+        JPanel infoPanel = new JPanel(new BorderLayout());
+        infoPanel.add(new JLabel("Test Info", SwingConstants.CENTER), BorderLayout.NORTH);
+        JTextArea infoText = new JTextArea();
+        infoText.setEditable(false);
+        infoText.setText(
+            "Test: " + testName + "\n" +
+            "State: " + result.getImageComparisonState() + "\n" +
+            "Expected Size: " + expected.getWidth() + "x" + expected.getHeight() + "\n" +
+            "Actual Size: " + actual.getWidth() + "x" + actual.getHeight() + "\n" +
+            "Difference %: " + String.format("%.2f%%", result.getDifferencePercent())
+        );
+        JScrollPane infoScroll = new JScrollPane(infoText);
+        infoPanel.add(infoScroll, BorderLayout.CENTER);
+        
+        mainPanel.add(expectedPanel);
+        mainPanel.add(actualPanel);
+        mainPanel.add(diffPanel);
+        mainPanel.add(infoPanel);
+        
+        dialog.add(mainPanel, BorderLayout.CENTER);
+        
+        // Add close button
+        JButton closeButton = new JButton("Close and Continue Test");
+        closeButton.addActionListener(e -> dialog.dispose());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(closeButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        
+        dialog.pack();
+        dialog.setLocationRelativeTo(null); // Center on screen
+        dialog.setVisible(true); // This will block until dialog is closed
     }
 
     private void clearImages() {
@@ -756,8 +839,9 @@ public class Graphics2DTests {
             testGraphics.dispose();
         }
         
-        standardImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
-        testImage = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        // Recreate images using AbstractBufferedImage interface
+        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_3BYTE_BGR);
+        testImage = new InfiniteBufferedImage();
         
         standardGraphics = standardImage.createGraphics();
         testGraphics = testImage.createGraphics();
