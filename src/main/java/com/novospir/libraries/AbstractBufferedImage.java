@@ -42,7 +42,7 @@ public interface AbstractBufferedImage {
         @Override
         public BufferedImage toBufferedImage(Rectangle bounds) {
             return this.bufferedImage.getSubimage(bounds.x, bounds.y,
-                    bounds.x + bounds.width, bounds.y + bounds.height);
+                    bounds.width, bounds.height);
         }
     }
 }
