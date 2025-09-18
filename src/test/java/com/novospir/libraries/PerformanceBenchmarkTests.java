@@ -11,8 +11,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 /**
  * Performance benchmark tests comparing InfiniteBufferedImage vs. standard BufferedImage
  * Test both speed and memory usage across various scenarios
@@ -45,8 +43,8 @@ public class PerformanceBenchmarkTests {
         int numOperations = 10000;
         
         // Standard BufferedImage
-        AbstractBufferedImage.BufferedImageWrapper standardWrapper =
-            new AbstractBufferedImage.BufferedImageWrapper(size, size, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage.BufferedImageAdapter standardWrapper =
+            new AbstractBufferedImage.BufferedImageAdapter(size, size, BufferedImage.TYPE_INT_ARGB);
         
         // InfiniteBufferedImage
         InfiniteBufferedImage infiniteImage = new InfiniteBufferedImage();
@@ -77,8 +75,8 @@ public class PerformanceBenchmarkTests {
         int numOperations = 10000;
         
         BufferedImage standardImage = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-        AbstractBufferedImage.BufferedImageWrapper standardWrapper = 
-            new AbstractBufferedImage.BufferedImageWrapper(size, size, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage.BufferedImageAdapter standardWrapper =
+            new AbstractBufferedImage.BufferedImageAdapter(size, size, BufferedImage.TYPE_INT_ARGB);
         InfiniteBufferedImage infiniteImage = new InfiniteBufferedImage();
 
 
@@ -252,8 +250,8 @@ public class PerformanceBenchmarkTests {
         int imageSize = 2000;
         int pixelCount = 5000;
         
-        AbstractBufferedImage.BufferedImageWrapper standardWrapper = 
-            new AbstractBufferedImage.BufferedImageWrapper(imageSize, imageSize, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage.BufferedImageAdapter standardWrapper =
+            new AbstractBufferedImage.BufferedImageAdapter(imageSize, imageSize, BufferedImage.TYPE_INT_ARGB);
         InfiniteBufferedImage infiniteImage = new InfiniteBufferedImage();
         
         // Fill both with same random pattern

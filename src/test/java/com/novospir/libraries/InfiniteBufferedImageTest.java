@@ -12,6 +12,15 @@ import java.util.Random;
  * Benchmark/accuracy test for QuadImage vs BufferedImage.
  */
 public class InfiniteBufferedImageTest {
+
+    /*
+    Add negative-coordinates tests
+        Validate drawing and findLeaves(...) over all four quadrants.
+    Add tests for QuadGraphics2D.drawImage(...) with and without transforms.
+    Add tests for QuadGraphics2D.shear(...) and for create()/dispose() semantics (use-after-dispose should throw).
+    Add a smoke test for InfiniteWritableRaster.setPixel/getPixel correctness at tile edges and negative coords.
+     */
+
     private static final int WRITES   = 100_000;  // random pixels to write
     private static final int CANVAS_W = 10_000;   // virtual canvas size
     private static final int CANVAS_H = 10_000;
@@ -20,7 +29,7 @@ public class InfiniteBufferedImageTest {
 
     @Test
     void comparison(){
-        AbstractBufferedImage buf = new AbstractBufferedImage.BufferedImageWrapper(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage buf = new AbstractBufferedImage.BufferedImageAdapter(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
         AbstractBufferedImage inf = new InfiniteBufferedImage();
 
         Random rng  = new Random(42);

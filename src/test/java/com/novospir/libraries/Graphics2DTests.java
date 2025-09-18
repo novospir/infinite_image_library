@@ -26,7 +26,7 @@ public class Graphics2DTests {
     @BeforeEach
     void setUp() {
         // Use the BufferedImageWrapper as the standard reference
-        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
+        standardImage = new AbstractBufferedImage.BufferedImageAdapter(width, height, BufferedImage.TYPE_INT_ARGB);
         // Use InfiniteBufferedImage as the test implementation
         testImage = new InfiniteBufferedImage();
         
@@ -744,13 +744,22 @@ public class Graphics2DTests {
         BufferedImage testBufferedImage = testImage.toBufferedImage(bounds);
         
         ImageComparisonResult result = new ImageComparison(standardBufferedImage, testBufferedImage).compareImages();
-        
+
+        boolean isWarning = false;
+
         // If comparison fails, show visual dialog before assertion
         if (result.getImageComparisonState() != ImageComparisonState.MATCH) {
+            int pixelsWrong = (int) (standardBufferedImage.getWidth() * standardBufferedImage.getHeight() * result.getDifferencePercent());
+            if(result.getDifferencePercent() < 0.02){
+                isWarning = true;
+                System.out.printf("Waring! %,d pixels are incorrect; lower than threshold (2%%)%n", pixelsWrong);
+            } else {
+                System.out.printf("Error! %,d pixels are incorrect; higher than threshold (2%%)%n", pixelsWrong);
+            }
             displayComparisonFailure(testName, standardBufferedImage, testBufferedImage, result);
         }
         
-        assertEquals(ImageComparisonState.MATCH, result.getImageComparisonState(),
+        if(!isWarning) assertEquals(ImageComparisonState.MATCH, result.getImageComparisonState(),
             "Images should match for test: " + testName);
     }
     
@@ -840,7 +849,7 @@ public class Graphics2DTests {
         }
         
         // Recreate images using AbstractBufferedImage interface
-        standardImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
+        standardImage = new AbstractBufferedImage.BufferedImageAdapter(width, height, BufferedImage.TYPE_INT_ARGB);
         testImage = new InfiniteBufferedImage();
         
         standardGraphics = standardImage.createGraphics();

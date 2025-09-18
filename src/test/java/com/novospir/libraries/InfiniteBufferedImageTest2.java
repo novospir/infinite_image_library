@@ -32,7 +32,7 @@ public class InfiniteBufferedImageTest2 {
     public static void setUp() {
         // Create a BufferedImage with a white background
 
-        standardBufferedImage = new AbstractBufferedImage.BufferedImageWrapper(width, height, BufferedImage.TYPE_INT_ARGB);
+        standardBufferedImage = new AbstractBufferedImage.BufferedImageAdapter(width, height, BufferedImage.TYPE_INT_ARGB);
 
         // Get graphics context and set up drawing
         Graphics2D g2d = standardBufferedImage.createGraphics();
@@ -98,11 +98,33 @@ public class InfiniteBufferedImageTest2 {
 
     @Test
     void rasterTest() throws IOException {
-        Raster originalRaster = standardBufferedImage.getRaster(new Rectangle(0, 0, width, height));
-        byte[] byteArray = ((DataBufferByte) originalRaster.getDataBuffer()).getData();
-        Raster newRaster = newBufferedImage.getRaster(new Rectangle(0, 0, width, height));
-        byte[] byteArray2 = ((DataBufferByte) newRaster.getDataBuffer()).getData();
-        assertArrayEquals(byteArray2,byteArray);
+
+        BufferedImage tmp = new BufferedImage(100, 100, BufferedImage.TYPE_INT_ARGB);
+        Graphics graphics = tmp.getGraphics();
+        graphics.setColor(Color.white);
+        graphics.fillRect(0, 0, 100, 100);
+        graphics.dispose();
+
+        AbstractWritableRaster infinite = newBufferedImage.getRaster();
+        AbstractWritableRaster original = standardBufferedImage.getRaster();
+
+        // Test that both rasters have the same properties
+        assertEquals(original.getWidth(), infinite.getWidth());
+        assertEquals(original.getHeight(), infinite.getHeight());
+        assertEquals(original.getNumBands(), infinite.getNumBands());
+        assertEquals(original.getBounds(), infinite.getBounds());
+
+        // Test a few sample pixels
+        int testX = 10, testY = 10;
+        for (int band = 0; band < original.getNumBands(); band++) {
+            assertEquals(original.getSample(testX, testY, band),
+                    infinite.getSample(testX, testY, band));
+        }
+
+        // Test a small region
+        int[] originalRegion = original.getPixels(5, 5, 10, 10, (int[])null);
+        int[] infiniteRegion = infinite.getPixels(5, 5, 10, 10, (int[])null);
+        assertArrayEquals(originalRegion, infiniteRegion);
     }
 
     @Test
@@ -192,7 +214,7 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testSetRGB() {
         // Create fresh test images for setRGB testing
-        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(50, 50, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageAdapter(50, 50, BufferedImage.TYPE_INT_ARGB);
         AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         // Fill both with white background
@@ -311,7 +333,7 @@ public class InfiniteBufferedImageTest2 {
     @Test
     void testCreateGraphics() {
         // Test that createGraphics() returns functional Graphics2D objects
-        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageWrapper(100, 100, BufferedImage.TYPE_INT_ARGB);
+        AbstractBufferedImage testStandard = new AbstractBufferedImage.BufferedImageAdapter(100, 100, BufferedImage.TYPE_INT_ARGB);
         AbstractBufferedImage testNew = new InfiniteBufferedImage();
         
         Graphics2D g1 = testStandard.createGraphics();
@@ -377,6 +399,73 @@ public class InfiniteBufferedImageTest2 {
     
     @Test
     void testGetRaster() {
+        // Test getRaster with different checks using full rasters
+        Rectangle fullBounds = new Rectangle(0, 0, width, height);
+        Rectangle partialBounds = new Rectangle(50, 50, 100, 100);
+        Rectangle smallBounds = new Rectangle(75, 75, 50, 50);
+
+        // Full rasters (no-arg getRaster per new API)
+        AbstractWritableRaster fullRaster1 = standardBufferedImage.getRaster();
+        AbstractWritableRaster fullRaster2 = newBufferedImage.getRaster();
+
+        assertNotNull(fullRaster1, "Standard getRaster should return non-null");
+        assertNotNull(fullRaster2, "New getRaster should return non-null");
+        assertEquals(fullRaster1.getWidth(), fullRaster2.getWidth(), "both raster widths should match");
+        assertEquals(fullRaster1.getHeight(), fullRaster2.getHeight(), "both raster heights should match");
+        assertEquals(fullRaster1.getNumBands(), fullRaster2.getNumBands(), "Number of bands should match");
+
+        int[] pixel1 = new int[fullRaster1.getNumBands()];
+        int[] pixel2 = new int[fullRaster2.getNumBands()];
+
+        // Test center of circle (absolute coords)
+        int centerX = circleX + circleDiameter / 2;
+        int centerY = circleY + circleDiameter / 2;
+        fullRaster1.getPixel(centerX, centerY, pixel1);
+        fullRaster2.getPixel(centerX, centerY, pixel2);
+        assertArrayEquals(pixel1, pixel2, "Center pixel raster data should match");
+
+        // Test background pixel (absolute coords)
+        fullRaster1.getPixel(10, 10, pixel1);
+        fullRaster2.getPixel(10, 10, pixel2);
+        assertArrayEquals(pixel1, pixel2, "Background pixel raster data should match");
+
+        // Compare partial region using getPixels (absolute coords)
+        int[] block1 = fullRaster1.getPixels(partialBounds.x, partialBounds.y, partialBounds.width, partialBounds.height, (int[]) null);
+        int[] block2 = fullRaster2.getPixels(partialBounds.x, partialBounds.y, partialBounds.width, partialBounds.height, (int[]) null);
+        assertNotNull(block1, "Partial block 1 should not be null");
+        assertNotNull(block2, "Partial block 2 should not be null");
+        assertEquals(block1.length, block2.length, "Partial blocks should have same length");
+        assertArrayEquals(block1, block2, "Partial blocks should match");
+
+        // Spot-check within partialBounds via getPixel at stride
+        for (int dx = 0; dx < partialBounds.width; dx += 10) {
+            for (int dy = 0; dy < partialBounds.height; dy += 10) {
+                int ax = partialBounds.x + dx;
+                int ay = partialBounds.y + dy;
+                fullRaster1.getPixel(ax, ay, pixel1);
+                fullRaster2.getPixel(ax, ay, pixel2);
+                assertArrayEquals(pixel1, pixel2, "Partial raster pixels should match at (" + ax + "," + ay + ")");
+            }
+        }
+
+        // Small region checks using getPixels and corners via getPixel
+        int[] small1 = fullRaster1.getPixels(smallBounds.x, smallBounds.y, smallBounds.width, smallBounds.height, (int[]) null);
+        int[] small2 = fullRaster2.getPixels(smallBounds.x, smallBounds.y, smallBounds.width, smallBounds.height, (int[]) null);
+        assertNotNull(small1, "Small block 1 should not be null");
+        assertNotNull(small2, "Small block 2 should not be null");
+        assertEquals(small1.length, small2.length, "Small blocks should have same length");
+        assertArrayEquals(small1, small2, "Small blocks should match");
+
+        // Corner pixels of small region (absolute coords)
+        fullRaster1.getPixel(smallBounds.x, smallBounds.y, pixel1);
+        fullRaster2.getPixel(smallBounds.x, smallBounds.y, pixel2);
+        assertArrayEquals(pixel1, pixel2, "Small raster corner pixels should match");
+
+        fullRaster1.getPixel(smallBounds.x + smallBounds.width - 1, smallBounds.y + smallBounds.height - 1, pixel1);
+        fullRaster2.getPixel(smallBounds.x + smallBounds.width - 1, smallBounds.y + smallBounds.height - 1, pixel2);
+        assertArrayEquals(pixel1, pixel2, "Small raster opposite corner pixels should match");
+
+        /* old api [ getRaster(Rectangle) ]
         // Test getRaster with different bounds
         Rectangle fullBounds = new Rectangle(0, 0, width, height);
         Rectangle partialBounds = new Rectangle(50, 50, 100, 100);
@@ -444,7 +533,7 @@ public class InfiniteBufferedImageTest2 {
         
         smallRaster1.getPixel(smallRaster1.getWidth()-1, smallRaster1.getHeight()-1, pixel1);
         smallRaster2.getPixel(smallRaster2.getWidth()-1, smallRaster2.getHeight()-1, pixel2);
-        assertArrayEquals(pixel1, pixel2, "Small raster opposite corner pixels should match");
+        assertArrayEquals(pixel1, pixel2, "Small raster opposite corner pixels should match");*/
     }
     
     private void displayComparisonFailure(String testName, BufferedImage expected, BufferedImage actual, ImageComparisonResult result) {

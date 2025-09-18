@@ -2,20 +2,19 @@ package com.novospir.libraries;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.image.Raster;
 
 public interface AbstractBufferedImage {
 
     int getRGB(int x, int y);
     void setRGB(int x, int y, int rgb);
     Graphics2D createGraphics();
-    Raster getRaster(Rectangle bounds);
+    AbstractWritableRaster getRaster();
     BufferedImage toBufferedImage(Rectangle bounds);
 
-    class BufferedImageWrapper implements AbstractBufferedImage {
+    class BufferedImageAdapter implements AbstractBufferedImage {
         private final BufferedImage bufferedImage;
 
-        public BufferedImageWrapper(int width, int height, int imageType){
+        public BufferedImageAdapter(int width, int height, int imageType){
             this.bufferedImage = new BufferedImage(width, height, imageType);
         }
 
@@ -35,8 +34,8 @@ public interface AbstractBufferedImage {
         }
 
         @Override
-        public Raster getRaster(Rectangle bounds) {
-            return this.bufferedImage.getRaster();
+        public AbstractWritableRaster getRaster() {
+            return AbstractWritableRaster.WritableRasterAdapter.toWritableRasterAdapter(this.bufferedImage.getRaster());
         }
 
         @Override
