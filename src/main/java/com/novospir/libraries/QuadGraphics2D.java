@@ -1,5 +1,7 @@
 package com.novospir.libraries;
 
+import com.novospir.libraries.config.ConfigLoader;
+
 import java.awt.*;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
@@ -9,30 +11,56 @@ import java.awt.image.*;
 import java.awt.image.renderable.RenderableImage;
 import java.text.AttributedCharacterIterator;
 import java.util.Map;
-import java.util.logging.Logger;
 
-import static com.novospir.libraries.InfiniteBufferedImage.TILE_SIZE;
-
-/*
-Note: some pixel deviation; possibly anti-aliasing variations -> ignored
-
-todo:
-    optimize all functions
-    overload function correctly
-    refactor 'duplicate code' across functions
-    implement 'dispose' ie correctly delete data freeing up space
-
-Todo: The functions of this class, need to be optimized, specifically, if nodes can
-        be clipped to only store a color (if they're only one color), then change all the functions
-        to persevere the data.
-
-Todo: need testing for each transformation, for each not tested yet - ie transform an copyArea
+/**
+ * A Graphics2D implementation that supports infinite-space drawing operations.
+ * 
+ * <p>QuadGraphics2D extends the standard Java {@link Graphics2D} interface to provide
+ * seamless drawing operations across an infinite canvas. When drawing shapes, text, or images,
+ * this class automatically creates and manages the underlying tile structure needed to store
+ * the pixel data in the {@link InfiniteBufferedImage}.
+ * 
+ * <h3>Purpose:</h3>
+ * <p>While {@link InfiniteBufferedImage} provides the storage mechanism, QuadGraphics2D
+ * provides the drawing API. It wraps a standard Graphics2D delegate and intercepts drawing
+ * operations, routing them to the appropriate tiles in the quadtree structure.
+ * 
+ * <h3>How It Works:</h3>
+ * <p>When you call any drawing method (e.g., {@code fillRect}, {@code drawImage}, {@code drawString}):
+ * <ol>
+ *   <li>Calculate the bounding box of the shape in user coordinates
+ *   <li>Find all quadtree leaf nodes (tiles) that intersect with this bounding box
+ *   <li>For each affected tile:
+ *     <ul>
+ *       <li>Create a Graphics2D context from the tile's BufferedImage
+ *       <li>Apply coordinate transformations to map from global to tile-local space
+ *       <li>Apply render hints, composite, stroke, and other Graphics2D state
+ *       <li>Perform the drawing operation in tile-local coordinates
+ *       <li>Dispose of the temporary Graphics2D context
+ *     </ul>
+ *   <li>Mark the image bounds as dirty to trigger a recomputation on next bounds query
+ * </ol>
+ * 
+ * <h3>Thread Safety:</h3>
+ * <p>QuadGraphics2D is currently <b>not thread-safe</b>. Multiple threads should not access
+ * the same QuadGraphics2D instance concurrently. However, it is safe to create
+ * multiple QuadGraphics2D instances from different InfiniteBufferedImage objects.
+ *
+ * @see InfiniteBufferedImage
+ * @see Graphics2D
+ * @author Novospir, Adam
+ * @since 1.0
  */
-
 class QuadGraphics2D extends Graphics2D {
     private final InfiniteBufferedImage image;
     private final Graphics2D delegate;
     private volatile boolean isDisposed;
+
+    public QuadGraphics2D(InfiniteBufferedImage image) {
+        this.image = image;
+        this.delegate = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+                .createGraphics();
+    }
 
     /* ------ SETTERS ------ */
     @Override
@@ -204,15 +232,8 @@ class QuadGraphics2D extends Graphics2D {
         return delegate.getFontRenderContext();
     }
 
-    /* ------ END OF GETTERS/SETTERS ------ */
-
-    public QuadGraphics2D(InfiniteBufferedImage image) {
-        this.image = image;
-        this.delegate = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
-                .createGraphics();
-    }
-
     /* ------ UTILITY ------ */
+
     private AffineTransform buildLocalTransform(QuadNode leaf) {
         AffineTransform t = new AffineTransform(); // global/user transform
         t.translate(-leaf.x, -leaf.y);             // move into tile-local space
@@ -239,7 +260,7 @@ class QuadGraphics2D extends Graphics2D {
     }
 
     /* ------ LIFECYCLE ------ */
-    @Override
+    @Override @Deprecated
     public Graphics create() {
         if (isDisposed) throw new IllegalStateException("Dispose was called on this object");
         throw new UnsupportedOperationException("Todo: Implement function");
@@ -356,6 +377,7 @@ class QuadGraphics2D extends Graphics2D {
 
     @Override
     public boolean drawImage(Image img, AffineTransform xform, ImageObserver obs) {
+        int TILE_SIZE = ConfigLoader.getInstance().getInt("tile.size", 128);
         if (isDisposed) throw new IllegalStateException("Dispose was called on this object");
         // Handle null image
         if (img == null) return true;
@@ -394,10 +416,10 @@ class QuadGraphics2D extends Graphics2D {
         // Now, draw the transformed image to your internal tile system
         Rectangle bounds = xformOp.getBounds2D(src).getBounds();
 
-        // Loop through affected tiles (based on your 128x128 quadtree)
+        // Loop through affected tiles
         for (int tileY = bounds.y / TILE_SIZE; tileY <= (bounds.y + bounds.height) / TILE_SIZE; tileY++) {
             for (int tileX = bounds.x / TILE_SIZE; tileX <= (bounds.x + bounds.width) / TILE_SIZE; tileX++) {
-                BufferedImage tile = image.getTileImage(tileX * TILE_SIZE, tileY * TILE_SIZE, true);
+                BufferedImage tile = image.findOrCreateLeaf(tileX * TILE_SIZE, tileY * TILE_SIZE).image;
                 if (tile == null) continue;
 
                 Graphics2D g2d = tile.createGraphics();

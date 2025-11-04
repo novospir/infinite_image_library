@@ -2,6 +2,28 @@ package com.novospir.libraries;
 
 import java.awt.image.*;
 
+/**
+ * Provides efficient decoding and interpretation of Java AWT DataBuffer structures.
+ * 
+ * <p>DataBufferDecoder analyzes and decodes the internal structure of Java's image data storage
+ * systems. It extracts information about how pixels are stored in DataBuffer objects, including
+ * pixel layout, color band organization, and bit packing schemes.
+ * 
+ * <h3>Purpose:</h3>
+ * <p>Java's image APIs use multiple data structures to store pixel information:
+ * <ul>
+ *   <li><b>DataBuffer</b> - Raw pixel data storage
+ *   <li><b>SampleModel</b> - Describes how data is organized
+ *   <li><b>ColorModel</b> - Describes color space and interpretation
+ * </ul>
+ * 
+ * <p>DataBufferDecoder bridges these systems to provide efficient, type-safe access
+ * to pixel data regardless of the underlying storage format.
+ *
+ * @see InfiniteWritableRaster
+ * @author Novospir, Adam
+ * @since 1.0
+ */
 class DataBufferDecoder {
     // Basic properties
     public final int pixelStride;
@@ -33,12 +55,6 @@ class DataBufferDecoder {
         this.dataType = getDataType(db);
         this.elementSizeBytes = getElementSizeBytes(dataType);
         this.isSigned = isSignedType(dataType);
-
-        // Initialize band offsets
-        /*this.bandOffsets = new int[numBands];
-        for (int b = 0; b < numBands; b++) {
-            bandOffsets[b] = b; // Default: consecutive bands
-        }*/
 
         // Handle different SampleModel types
         if (sm instanceof ComponentSampleModel) {
@@ -94,6 +110,62 @@ class DataBufferDecoder {
     }
 
     // Helper methods
+    protected static float[] getDataArrayFloat(DataBuffer db) {
+        return ((DataBufferFloat) db).getData();
+    }
+
+    protected static double[] getDataArrayDouble(DataBuffer db) {
+        return ((DataBufferDouble) db).getData();
+    }
+
+    protected static int[] getDataArray(DataBuffer db) {
+        if (db instanceof DataBufferInt) {
+            return ((DataBufferInt) db).getData();
+        } else if (db instanceof DataBufferByte) {
+            // Convert byte array to int array
+            byte[] byteData = ((DataBufferByte) db).getData();
+            int[] intData = new int[byteData.length];
+            for (int i = 0; i < byteData.length; i++) {
+                intData[i] = byteData[i] & 0xFF; // Convert to unsigned
+            }
+            return intData;
+        } else if (db instanceof DataBufferUShort) {
+            // Convert short array to int array
+            short[] shortData = ((DataBufferUShort) db).getData();
+            int[] intData = new int[shortData.length];
+            for (int i = 0; i < shortData.length; i++) {
+                intData[i] = shortData[i] & 0xFFFF; // Convert to unsigned
+            }
+            return intData;
+        } else if (db instanceof DataBufferShort) {
+            // Convert short array to int array
+            short[] shortData = ((DataBufferShort) db).getData();
+            int[] intData = new int[shortData.length];
+            for (int i = 0; i < shortData.length; i++) {
+                intData[i] = shortData[i];
+            }
+            return intData;
+        } else if (db instanceof DataBufferFloat) {
+            // Convert float array to int array
+            float[] floatData = ((DataBufferFloat) db).getData();
+            int[] intData = new int[floatData.length];
+            for (int i = 0; i < floatData.length; i++) {
+                intData[i] = (int) floatData[i];
+            }
+            return intData;
+        } else if (db instanceof DataBufferDouble) {
+            // Convert double array to int array
+            double[] doubleData = ((DataBufferDouble) db).getData();
+            int[] intData = new int[doubleData.length];
+            for (int i = 0; i < doubleData.length; i++) {
+                intData[i] = (int) doubleData[i];
+            }
+            return intData;
+        } else {
+            throw new UnsupportedOperationException("Unsupported DataBuffer type: " + db.getClass().getSimpleName());
+        }
+    }
+
     private static Class<?> getDataType(DataBuffer db) {
         if (db instanceof DataBufferInt) return int.class;
         if (db instanceof DataBufferByte) return byte.class;
@@ -136,14 +208,7 @@ class DataBufferDecoder {
     }
 
     public int unpackBand(int packedValue, int band) {
-        /*if (!needsBitUnpacking()) return packedValue;
-        return (packedValue & bitMasks[band]) >>> bitShifts[band];*/
         if (!needsBitUnpacking()) return packedValue;
-
-        if (bitMasks != null && bitMasks.length > 0) {
-            return (packedValue & bitMasks[0]) >>> bitShifts[band];
-        }
-
-        return packedValue;
+        return ((packedValue & bitMasks[band]) >>> bitShifts[band]);
     }
 }

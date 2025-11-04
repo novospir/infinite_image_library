@@ -1,27 +1,44 @@
 package com.novospir.libraries;
 
-
 import java.awt.*;
 import java.awt.image.*;
 import java.util.List;
 
-/*
-This class does the same functions as raster, but not as optimized
-
+/**
+ * A WritableRaster implementation that provides low-level pixel access for infinite space.
+ * 
+ * <p>InfiniteWritableRaster provides direct pixel-level read/write access to an
+ * {@link InfiniteBufferedImage}. Unlike the higher-level Graphics2D drawing API,
+ * this class allows you to manipulate individual pixels or pixel regions efficiently.
+ * 
+ * <h3>Purpose:</h3>
+ * <p>While {@link QuadGraphics2D} provides shape-based drawing operations, InfiniteWritableRaster
+ * provides direct pixel manipulation. It implements the {@link WritableRaster} interface
+ * to allow pixel-level operations that work seamlessly across the quadtree tile structure.
+ * 
+ * <h3>Use Cases:</h3>
+ * <ul>
+ *   <li><b>Direct pixel manipulation</b> - Get or set individual pixel values
+ *   <li><b>Batch pixel operations</b> - Read/write rectangular regions efficiently
+ *   <li><b>Low-level image processing</b> - Algorithms that need direct raster access
+ *   <li><b>Data transfer</b> - Copying data between images at the pixel level
+ *   <li><b>Custom compositing</b> - Manual alpha blending or color space conversions
+ * </ul>
+ * 
+ * @see InfiniteBufferedImage
+ * @see AbstractWritableRaster
+ * @see WritableRaster
+ * @author Novospir, Adam
+ * @since 1.0
  */
-
 class InfiniteWritableRaster implements AbstractWritableRaster {
-
-    // getTransferType is final, and we must use the super
-    //
 
     private final InfiniteBufferedImage image;
     private final int bands;
 
+    // todo: move band calculation to InfiniteBufferedImage.getType()
     protected InfiniteWritableRaster(InfiniteBufferedImage image) {
         this.image = image;
-        // probably a better way to do this
-        // yeah - when calc getType in InfiniteBufferedImage, calc bands from that
         this.bands = new BufferedImage(1, 1, image.getType()).getRaster().getNumBands();
     }
 
@@ -106,9 +123,6 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
 
     /// @see java.awt.image.Raster#getPixels(int, int, int, int, int[])
     @Override public int[] getPixels(int x, int y, int w, int h, int[] iArray) {
-        // r.getSampleModel() instanceof SinglePixelPackedSampleModel && r.getDataBuffer() instanceof DataBufferInt
-
-        // todo: use DataBuffer, so we only have to copy data once
         if (iArray == null) iArray = new int[w * h * bands];
         else if (iArray.length <  w * h * bands) throw new ArrayIndexOutOfBoundsException(
                 String.format("Allocated array was too small [%,d] < [%,d]", iArray.length, (w * h * bands))
@@ -142,7 +156,7 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
             final int dstY = interY1 - y;
 
             // Get direct access to data array based on DataBuffer type
-            final int[] data = getDataArray(db);
+            final int[] data = DataBufferDecoder.getDataArray(db);
 
             // Calculate base offset for this tile region
             final int rasterMinX = tileRaster.getMinX();
@@ -178,15 +192,33 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
                     }
                 }
             }
-            /*if (node == null || node.image == null) continue;
+        }
+
+        return iArray;
+    }
+
+    /// @see java.awt.image.Raster#getPixels(int, int, int, int, float[])
+    @Override
+    public float[] getPixels(int x, int y, int w, int h, float[] fArray) {
+        if (fArray == null) fArray = new float[w * h * bands];
+        else if (fArray.length <  w * h * bands) throw new ArrayIndexOutOfBoundsException(
+                String.format("Allocated array was too small [%,d] < [%,d]", fArray.length, (w * h * bands))
+        );
+
+        // Iterate over tiles overlapping the requested rect
+        List<QuadNode> tiles = image.findLeaves(x, y, w, h, false);
+        if (tiles == null || tiles.isEmpty()) return fArray;
+
+        for (QuadNode node : tiles) {
+            if (node == null || node.image == null) continue;
 
             final Raster tileRaster = node.image.getRaster();
-            final int tileX = node.x;
-            final int tileY = node.y;
-            final int tileW = node.image.getWidth();
-            final int tileH = node.image.getHeight();
+            final DataBuffer db = tileRaster.getDataBuffer();
+            final DataBufferDecoder decoder = new DataBufferDecoder(tileRaster.getSampleModel(), db);
 
-            // Intersection in global coords
+            final int tileX = node.x, tileY = node.y;
+            final int tileW = node.image.getWidth(), tileH = node.image.getHeight();
+
             final int interX1 = Math.max(x, tileX);
             final int interY1 = Math.max(y, tileY);
             final int interX2 = Math.min(x + w, tileX + tileW);
@@ -195,83 +227,110 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
             final int interH = interY2 - interY1;
             if (interW <= 0 || interH <= 0) continue;
 
-            // Local coords within the tile, and destination offsets within the request
             final int localX = interX1 - tileX;
             final int localY = interY1 - tileY;
             final int dstX = interX1 - x;
             final int dstY = interY1 - y;
 
-            // Pull the block from the tile using the built-in getPixels
-            final int[] block = tileRaster.getPixels(localX, localY, interW, interH, (int[]) null);
+            // Get direct access to data array based on DataBuffer type
+            final float[] data = DataBufferDecoder.getDataArrayFloat(db);
 
-            // Copy row-by-row into destination (both arrays are interleaved by bands)
-            final int srcRowStride = interW * bands;
+            // Calculate base offset for this tile region
+            final int rasterMinX = tileRaster.getMinX();
+            final int rasterMinY = tileRaster.getMinY();
+            final int dataBufferOffset = db.getOffset();
+            final int baseOffset = dataBufferOffset + (localY + rasterMinY) * decoder.scanlineStride + (localX + rasterMinX) * decoder.pixelStride;
+
+            // Copy pixels using decoder information
             for (int row = 0; row < interH; row++) {
-                final int srcOff = row * srcRowStride;
-                final int dstOff = ((dstY + row) * w + dstX) * bands;
-                System.arraycopy(block, srcOff, iArray, dstOff, srcRowStride);
-            }*/
+                final int srcRowStart = baseOffset + row * decoder.scanlineStride;
+                final int dstRowStart = ((dstY + row) * w + dstX) * bands;
+
+                for (int col = 0; col < interW; col++) {
+                    final int srcPixelStart = srcRowStart + col * decoder.pixelStride;
+                    final int dstPixelStart = dstRowStart + col * bands;
+
+                    for (int b = 0; b < Math.min(bands, decoder.numBands); b++) {
+                        fArray[dstPixelStart + b] = data[srcPixelStart + decoder.bandOffsets[b]];
+                    }
+
+                    // Fill remaining bands with 0 if needed
+                    for (int b = decoder.numBands; b < bands; b++) {
+                        fArray[dstPixelStart + b] = 0;
+                    }
+                }
+            }
         }
 
-        return iArray;
-    }
-
-    private int[] getDataArray(DataBuffer db) {
-        if (db instanceof DataBufferInt) {
-            return ((DataBufferInt) db).getData();
-        } else if (db instanceof DataBufferByte) {
-            // Convert byte array to int array
-            byte[] byteData = ((DataBufferByte) db).getData();
-            int[] intData = new int[byteData.length];
-            for (int i = 0; i < byteData.length; i++) {
-                intData[i] = byteData[i] & 0xFF; // Convert to unsigned
-            }
-            return intData;
-        } else if (db instanceof DataBufferUShort) {
-            // Convert short array to int array
-            short[] shortData = ((DataBufferUShort) db).getData();
-            int[] intData = new int[shortData.length];
-            for (int i = 0; i < shortData.length; i++) {
-                intData[i] = shortData[i] & 0xFFFF; // Convert to unsigned
-            }
-            return intData;
-        } else if (db instanceof DataBufferShort) {
-            // Convert short array to int array
-            short[] shortData = ((DataBufferShort) db).getData();
-            int[] intData = new int[shortData.length];
-            for (int i = 0; i < shortData.length; i++) {
-                intData[i] = shortData[i];
-            }
-            return intData;
-        } else if (db instanceof DataBufferFloat) {
-            // Convert float array to int array
-            float[] floatData = ((DataBufferFloat) db).getData();
-            int[] intData = new int[floatData.length];
-            for (int i = 0; i < floatData.length; i++) {
-                intData[i] = (int) floatData[i];
-            }
-            return intData;
-        } else if (db instanceof DataBufferDouble) {
-            // Convert double array to int array
-            double[] doubleData = ((DataBufferDouble) db).getData();
-            int[] intData = new int[doubleData.length];
-            for (int i = 0; i < doubleData.length; i++) {
-                intData[i] = (int) doubleData[i];
-            }
-            return intData;
-        } else {
-            throw new UnsupportedOperationException("Unsupported DataBuffer type: " + db.getClass().getSimpleName());
-        }
-    }
-
-    /// @see java.awt.image.Raster#getPixels(int, int, int, int, float[])
-    @Override public float[] getPixels(int x, int y, int w, int h, float[] fArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        return fArray;
     }
 
     /// @see java.awt.image.Raster#getPixels(int, int, int, int, double[])
-    @Override public double[] getPixels(int x, int y, int w, int h, double[] dArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+    @Override
+    public double[] getPixels(int x, int y, int w, int h, double[] dArray) {
+        if (dArray == null) dArray = new double[w * h * bands];
+        else if (dArray.length <  w * h * bands) throw new ArrayIndexOutOfBoundsException(
+                String.format("Allocated array was too small [%,d] < [%,d]", dArray.length, (w * h * bands))
+        );
+
+        // Iterate over tiles overlapping the requested rect
+        List<QuadNode> tiles = image.findLeaves(x, y, w, h, false);
+        if (tiles == null || tiles.isEmpty()) return dArray;
+
+        for (QuadNode node : tiles) {
+            if (node == null || node.image == null) continue;
+
+            final Raster tileRaster = node.image.getRaster();
+            final DataBuffer db = tileRaster.getDataBuffer();
+            final DataBufferDecoder decoder = new DataBufferDecoder(tileRaster.getSampleModel(), db);
+
+            final int tileX = node.x, tileY = node.y;
+            final int tileW = node.image.getWidth(), tileH = node.image.getHeight();
+
+            final int interX1 = Math.max(x, tileX);
+            final int interY1 = Math.max(y, tileY);
+            final int interX2 = Math.min(x + w, tileX + tileW);
+            final int interY2 = Math.min(y + h, tileY + tileH);
+            final int interW = interX2 - interX1;
+            final int interH = interY2 - interY1;
+            if (interW <= 0 || interH <= 0) continue;
+
+            final int localX = interX1 - tileX;
+            final int localY = interY1 - tileY;
+            final int dstX = interX1 - x;
+            final int dstY = interY1 - y;
+
+            // Get direct access to data array based on DataBuffer type
+            final double[] data = DataBufferDecoder.getDataArrayDouble(db);
+
+            // Calculate base offset for this tile region
+            final int rasterMinX = tileRaster.getMinX();
+            final int rasterMinY = tileRaster.getMinY();
+            final int dataBufferOffset = db.getOffset();
+            final int baseOffset = dataBufferOffset + (localY + rasterMinY) * decoder.scanlineStride + (localX + rasterMinX) * decoder.pixelStride;
+
+            // Copy pixels using decoder information
+            for (int row = 0; row < interH; row++) {
+                final int srcRowStart = baseOffset + row * decoder.scanlineStride;
+                final int dstRowStart = ((dstY + row) * w + dstX) * bands;
+
+                for (int col = 0; col < interW; col++) {
+                    final int srcPixelStart = srcRowStart + col * decoder.pixelStride;
+                    final int dstPixelStart = dstRowStart + col * bands;
+
+                    for (int b = 0; b < Math.min(bands, decoder.numBands); b++) {
+                        dArray[dstPixelStart + b] = data[srcPixelStart + decoder.bandOffsets[b]];
+                    }
+
+                    // Fill remaining bands with 0 if needed
+                    for (int b = decoder.numBands; b < bands; b++) {
+                        dArray[dstPixelStart + b] = 0;
+                    }
+                }
+            }
+        }
+
+        return dArray;
     }
 
     /// @see java.awt.image.WritableRaster#setPixel(int, int, int[])
@@ -287,14 +346,27 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
 
     /// @see java.awt.image.WritableRaster#setPixel(int, int, float[])
     @Override public void setPixel(int x, int y, float[] fArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        if (fArray == null) throw new NullPointerException("Provided array-data is null");
+        else if (fArray.length < bands) throw new ArrayIndexOutOfBoundsException(
+                String.format("Allocated array was too small [%,d] < [%,d]", fArray.length, bands)
+        );
+        QuadNode leaf = this.image.findOrCreateLeaf(x, y);
+        leaf.image.getRaster().setPixel(x - leaf.x, y - leaf.y, fArray);
+        this.image.markBoundsDirty();
     }
 
     /// @see java.awt.image.WritableRaster#setPixel(int, int, double[])
     @Override public void setPixel(int x, int y, double[] dArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        if (dArray == null) throw new NullPointerException("Provided array-data is null");
+        else if (dArray.length < bands) throw new ArrayIndexOutOfBoundsException(
+                String.format("Allocated array was too small [%,d] < [%,d]", dArray.length, bands)
+        );
+        QuadNode leaf = this.image.findOrCreateLeaf(x, y);
+        leaf.image.getRaster().setPixel(x - leaf.x, y - leaf.y, dArray);
+        this.image.markBoundsDirty();
     }
 
+    /// @see java.awt.image.WritableRaster#setPixels(int, int, int, int, int[])
     @Override
     public void setPixels(int x, int y, int w, int h, int[] iArray) {
         if (iArray == null) return;
@@ -352,37 +424,46 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
         }
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setPixels(int, int, int, int, float[])
+    @Override @Deprecated
     public void setPixels(int x, int y, int w, int h, float[] fArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setPixels(int, int, int, int, double[])
+    @Override @Deprecated
     public void setPixels(int x, int y, int w, int h, double[] dArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
     // ---------- SAMPLES ---------------
 
-    // For getSample - delegate to leaf raster
+    /// @see java.awt.image.WritableRaster#getSample(int, int, int)
     @Override
     public int getSample(int x, int y, int b) {
-        // band = 0 = Red, 1 = Green, 2 = Blue, 3 = Alpha etc
+        // Bands = 0 = Red, 1 = Green, 2 = Blue, 3 = Alpha
         QuadNode leaf = image.findLeaf(x, y);
         int[] local = globalToLocal(x, y, leaf);
         return leaf.image.getRaster().getSample(local[0], local[1], b);
     }
 
+    /// @see java.awt.image.WritableRaster#getSampleFloat(int, int, int)
     @Override
     public float getSampleFloat(int x, int y, int b) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        QuadNode leaf = image.findLeaf(x, y);
+        int[] local = globalToLocal(x, y, leaf);
+        return leaf.image.getRaster().getSampleFloat(local[0], local[1], b);
     }
 
+    /// @see java.awt.image.WritableRaster#getSampleDouble(int, int, int)
     @Override
     public double getSampleDouble(int x, int y, int b) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        QuadNode leaf = image.findLeaf(x, y);
+        int[] local = globalToLocal(x, y, leaf);
+        return leaf.image.getRaster().getSampleDouble(local[0], local[1], b);
     }
 
+    /// @see java.awt.image.WritableRaster#getSamples(int, int, int, int, int, int[])
     @Override
     public int[] getSamples(int x, int y, int w, int h, int b, int[] iArray) {
         if (w <= 0 || h <= 0) return new int[0];
@@ -443,44 +524,52 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
         return iArray;
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#getSamples(int, int, int, int, int, float[])
+    @Override @Deprecated
     public float[] getSamples(int x, int y, int w, int h, int b, float[] fArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#getSamples(int, int, int, int, int, double[])
+    @Override @Deprecated
     public double[] getSamples(int x, int y, int w, int h, int b, double[] dArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
+    /// @see java.awt.image.WritableRaster#setSample(int, int, int, int)
     @Override @Deprecated
     public void setSample(int x, int y, int b, int s) {
         throw new UnsupportedOperationException("Todo: Implement function");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setSample(int, int, int, float)
+    @Override @Deprecated
     public void setSample(int x, int y, int b, float s) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setSample(int, int, int, double)
+    @Override @Deprecated
     public void setSample(int x, int y, int b, double s) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
+    /// @see java.awt.image.WritableRaster#setSamples(int, int, int, int, int, int[])
     @Override @Deprecated
     public void setSamples(int x, int y, int w, int h, int b, int[] iArray) {
-
+        throw new UnsupportedOperationException("Todo: Implement function");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setSamples(int, int, int, int, int, float[])
+    @Override @Deprecated
     public void setSamples(int x, int y, int w, int h, int b, float[] fArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
-    @Override
+    /// @see java.awt.image.WritableRaster#setSamples(int, int, int, int, int, double[])
+    @Override @Deprecated
     public void setSamples(int x, int y, int w, int h, int b, double[] dArray) {
-        throw new UnsupportedOperationException("do this after integer is implemented.");
+        throw new UnsupportedOperationException("Support this after integer is implemented, properly.");
     }
 
     /// @see Raster#getNumDataElements()
@@ -495,67 +584,33 @@ class InfiniteWritableRaster implements AbstractWritableRaster {
         throw new UnsupportedOperationException("Todo: Implement function");
     }
 
+    /// @see Raster#getNumBands()
     @Override
     public int getNumBands() {
         return bands;
     }
 
+    /// @see Raster#getHeight()
     @Override
     public int getHeight() {
         return image.getLogicalBounds().height;
     }
 
+    /// @see Raster#getWidth()
     @Override
     public int getWidth() {
         return image.getLogicalBounds().width;
     }
 
+    /// @see Raster#getMinY()
     @Override
     public int getMinY() {
         return image.getLogicalBounds().y;
     }
 
+    /// @see Raster#getMinX()
     @Override
     public int getMinX() {
         return image.getLogicalBounds().x;
     }
-
-    /*@Override
-    public int[] getPixels(int x, int y, int w, int h, int[] iArray) {
-        int bands = this.getSampleModel().getNumBands();
-        if (iArray == null || iArray.length < w * h * bands) {
-            iArray = new int[w * h * bands];
-        }
-
-
-        for each tile contained
-            tile.getRaster.getPixels(x, y, w, h, iArray)
-            // where x,y,w,h are recalculated within this tile appropriately
-            // and, if possible, iArray is an offset array that the getPixels can write directly to -
-                // offset so that it's writing to correct place calculated for this tile
-
-
-        int outIndex = 0;
-        for (int j = 0; j < h; j++) {
-            int globalY = y + j;
-            for (int i = 0; i < w; i++) {
-                int globalX = x + i;
-
-                BufferedImage tile = getTileContaining(globalX, globalY);
-                Raster r = tile.getRaster().getPix;
-
-                int localX = globalX % tileSize;
-                int localY = globalY % tileSize;
-
-                int[] pixel = new int[bands];
-                r.getPixel(localX, localY, pixel);
-
-                for (int b = 0; b < bands; b++) {
-                    iArray[outIndex++] = pixel[b];
-                }
-            }
-        }
-
-        return iArray;
-    }*/
 }

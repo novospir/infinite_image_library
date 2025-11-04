@@ -7,6 +7,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="infinite_image_library2" />
+        <module name="infinite-image-library" />
       </profile>
     </annotationProcessing>
   </component>

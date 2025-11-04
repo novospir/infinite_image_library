@@ -1,5 +1,7 @@
 package com.novospir.libraries;
 
+import com.novospir.libraries.config.ConfigLoader;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -13,19 +15,24 @@ import java.util.Date;
 import java.util.Random;
 
 /**
- * Simple interactive demo for InfiniteBufferedImage.
- *
+ * Simple interactive demo for {@link InfiniteBufferedImage}.
+ * <p>
  * Features:
- * - Left-drag: paint circles at world coordinates (demonstrates sparse growth)
- * - Right-drag: pan the viewport (demonstrates unbounded space)
- * - Mouse wheel: zoom in/out (discrete levels)
- * - Key 'E': export current viewport to PNG
- * - Key 'G': toggle tile grid overlay (128x128)
- * - Key 'B': draw random boxes across very large coordinates (stress sparsity)
- * - Key 'R': reset to origin and clear view (image data remains)
- *
- * Run from IDE or via: mvn -q -Dtest=com.novospir.libraries.InteractiveInfiniteImageDemo test
- * Or simply run this class' main() from test sources.
+ * <ul>
+ *   <li><b>Left-drag:</b> paint circles at world coordinates (demonstrates sparse growth)</li>
+ *   <li><b>Right-drag:</b> pan the viewport (demonstrates unbounded space)</li>
+ *   <li><b>Mouse wheel:</b> zoom in/out (discrete levels)</li>
+ *   <li><b>Key 'E':</b> export current viewport to PNG</li>
+ *   <li><b>Key 'G':</b> toggle tile grid overlay (128x128)</li>
+ *   <li><b>Key 'B':</b> draw random boxes across very large coordinates (stress sparsity)</li>
+ *   <li><b>Key 'R':</b> reset to origin and clear view (image data remains)</li>
+ * </ul>
+ * <p>
+ * Run from IDE or via Maven:
+ * <pre>
+ * mvn -q -Dtest=com.novospir.libraries.InteractiveInfiniteImageDemo test
+ * </pre>
+ * Or simply run this class' {@code main()} from test sources.
  */
 public class InteractiveInfiniteImageDemo {
 
@@ -237,7 +244,7 @@ public class InteractiveInfiniteImageDemo {
             // Optional grid overlay to show 128x128 tiles
             if (showGrid) {
                 g.setColor(new Color(255, 255, 255, 50));
-                int tile = InfiniteBufferedImage.TILE_SIZE;
+                int tile = ConfigLoader.getInstance().getInt("tile.size", 128);
                 int startX = (int) Math.floor((double) view.x / tile) * tile;
                 int startY = (int) Math.floor((double) view.y / tile) * tile;
                 int endX = view.x + worldRect.width;
