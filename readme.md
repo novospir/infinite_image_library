@@ -335,6 +335,10 @@ mvn test -Dtest=InteractiveInfiniteImageDemo
 - [A-Berk](https://github.com/A-Berk): Core development and design
 - Developed under [Novospir](https://www.novospir.com/) for the InfiniteImage project
 
+## License
+This project is licensed under the [MIT License](./LICENSE) — feel free to use, modify, and share it.  
+Contributions are always appreciated!
+
 ---
 
 **Note**: This library is designed for use cases where standard `BufferedImage` limitations are problematic. For typical fixed-size image scenarios, continue using `BufferedImage` for optimal performance.
