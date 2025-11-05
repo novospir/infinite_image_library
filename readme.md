@@ -323,10 +323,17 @@ mvn test -Dtest=InteractiveInfiniteImageDemo
 * Verify full data buffer compatibility (across all supported types)
 * Move band calculation logic to InfiniteBufferedImage.getType()
 
-## Acknowledgments
-- Built for Java AWT Graphics2D API
-- Quadtree spatial data structure implementation
-- Adapter pattern for BufferedImage compatibility
+## Contributors & Architecture Notes
+
+**Core Architecture**
+- Built for the Java **AWT Graphics2D** API
+- Utilizes a **Quadtree** spatial data structure
+- Employs the **Adapter** pattern for `BufferedImage` compatibility
+
+**Contributors**
+- [sdkkds2125](https://github.com/sdkkds2125): Testing and validation  
+- [A-Berk](https://github.com/A-Berk): Core development and design
+- Developed under [Novospir](https://www.novospir.com/) for the InfiniteImage project
 
 ---
 
