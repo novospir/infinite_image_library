@@ -22,6 +22,7 @@ A Java library providing infinite-space image manipulation with quadtree-based t
 - **Sparse image rendering** - Content scattered across large areas with mostly empty space
 - **Memory-conscious applications** - When you need large logical canvas but limited physical memory
 - **Procedurally generated content** - When final canvas size is unknown upfront
+- **Custom coordinate systems** - Ideal when the canvas requires a custom coordinate system (for example, using the center as the origin or allowing negative coordinates)
 
 ### ❌ Not Ideal For
 
